@@ -3,11 +3,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import gsap from "gsap";
 
-// Scene
+// ---------------- SCENE ----------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a1a);
 
-// Camera
+// CAMERA
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
@@ -16,70 +16,83 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(4, 4, 4);
 
-// Renderer
+// RENDERER
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Controls
+// CONTROLS
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// Lights
+// LIGHTS
 scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
 const light = new THREE.DirectionalLight(0xffffff, 2);
 light.position.set(5, 5, 5);
 scene.add(light);
 
-// Cube group (IMPORTANT)
+// ---------------- CUBE ROOT ----------------
 const cube = new THREE.Group();
 scene.add(cube);
 
-// Store cubies
+// ---------------- STATE ----------------
 const cubies = [];
+let isAnimating = false;
 
-// Create 27 cubies
-for (let x = -1; x <= 1; x++) {
-  for (let y = -1; y <= 1; y++) {
-    for (let z = -1; z <= 1; z++) {
+// ---------------- CREATE CUBIES ----------------
+function createCubies() {
+  for (let x = -1; x <= 1; x++) {
+    for (let y = -1; y <= 1; y++) {
+      for (let z = -1; z <= 1; z++) {
 
-      const colors = [
-        new THREE.MeshStandardMaterial({ color: x === 1 ? 0xff0000 : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: x === -1 ? 0xffa500 : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: y === 1 ? 0xffffff : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: y === -1 ? 0xffff00 : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: z === 1 ? 0x00ff00 : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: z === -1 ? 0x0000ff : 0x111111 }),
-      ];
+        const materials = [
+          new THREE.MeshStandardMaterial({ color: x === 1 ? 0xff0000 : 0x111111 }),
+          new THREE.MeshStandardMaterial({ color: x === -1 ? 0xffa500 : 0x111111 }),
+          new THREE.MeshStandardMaterial({ color: y === 1 ? 0xffffff : 0x111111 }),
+          new THREE.MeshStandardMaterial({ color: y === -1 ? 0xffff00 : 0x111111 }),
+          new THREE.MeshStandardMaterial({ color: z === 1 ? 0x00ff00 : 0x111111 }),
+          new THREE.MeshStandardMaterial({ color: z === -1 ? 0x0000ff : 0x111111 }),
+        ];
 
-      const cubie = new THREE.Mesh(
-        new THREE.BoxGeometry(0.95, 0.95, 0.95),
-        colors
-      );
+        const cubie = new THREE.Mesh(
+          new THREE.BoxGeometry(0.95, 0.95, 0.95),
+          materials
+        );
 
-      cubie.position.set(x, y, z);
+        cubie.position.set(x, y, z);
 
-      cube.add(cubie);
-      cubies.push(cubie);
+        cube.add(cubie);
+        cubies.push(cubie);
 
-      const edges = new THREE.EdgesGeometry(cubie.geometry);
-      const line = new THREE.LineSegments(
-        edges,
-        new THREE.LineBasicMaterial({ color: 0x000000 })
-      );
-      cubie.add(line);
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(cubie.geometry),
+          new THREE.LineBasicMaterial({ color: 0x000000 })
+        );
+
+        cubie.add(edges);
+      }
     }
   }
 }
 
-// Face selection helper
-function getFace(axis, value) {
-  return cubies.filter(c => Math.round(c.position[axis]) === value);
+createCubies();
+
+// ---------------- SNAP FUNCTION (IMPORTANT FIX) ----------------
+function snap(n) {
+  return Math.round(n);
 }
 
-// Rotate a face
+// ---------------- GET FACE ----------------
+function getFace(axis, value) {
+  return cubies.filter(c => snap(c.position[axis]) === value);
+}
+
+// ---------------- ROTATE FACE (FIXED + LOCKED) ----------------
 function rotateFace(axis, value, angle) {
+  if (isAnimating) return;
+  isAnimating = true;
+
   const face = getFace(axis, value);
 
   const temp = new THREE.Group();
@@ -89,71 +102,99 @@ function rotateFace(axis, value, angle) {
 
   gsap.to(temp.rotation, {
     [axis]: temp.rotation[axis] + angle,
-    duration: 0.4,
+    duration: 0.25,
+    ease: "power2.inOut",
     onComplete: () => {
+
+      // reattach to main cube
       face.forEach(c => cube.attach(c));
-      temp.rotation.set(0, 0, 0);
+
       cube.remove(temp);
+
+      // ---------------- SNAP POSITION + ROTATION FIX ----------------
+      cubies.forEach(c => {
+        c.position.set(
+          snap(c.position.x),
+          snap(c.position.y),
+          snap(c.position.z)
+        );
+
+        c.rotation.set(
+          Math.round(c.rotation.x / (Math.PI / 2)) * (Math.PI / 2),
+          Math.round(c.rotation.y / (Math.PI / 2)) * (Math.PI / 2),
+          Math.round(c.rotation.z / (Math.PI / 2)) * (Math.PI / 2)
+        );
+      });
+
+      isAnimating = false;
     }
   });
 }
 
-// Controls (keyboard moves)
+// ---------------- CONTROLS ----------------
 window.addEventListener("keydown", (e) => {
+  if (isAnimating) return;
+
   switch (e.key.toLowerCase()) {
-
-    case "r":
-      rotateFace("x", 1, Math.PI / 2);
-      break;
-
-    case "l":
-      rotateFace("x", -1, -Math.PI / 2);
-      break;
-
-    case "u":
-      rotateFace("y", 1, Math.PI / 2);
-      break;
-
-    case "d":
-      rotateFace("y", -1, -Math.PI / 2);
-      break;
-
-    case "f":
-      rotateFace("z", 1, Math.PI / 2);
-      break;
-
-    case "b":
-      rotateFace("z", -1, Math.PI / 2);
-      break;
+    case "r": rotateFace("x", 1, Math.PI / 2); break;
+    case "l": rotateFace("x", -1, -Math.PI / 2); break;
+    case "u": rotateFace("y", 1, Math.PI / 2); break;
+    case "d": rotateFace("y", -1, -Math.PI / 2); break;
+    case "f": rotateFace("z", 1, Math.PI / 2); break;
+    case "b": rotateFace("z", -1, -Math.PI / 2); break;
   }
 });
 
-// Scramble
+// ---------------- SCRAMBLE ----------------
 function scramble() {
-  const moves = ["r","l","u","d","f","b"];
+  const moves = [
+    () => rotateFace("x", 1, Math.PI / 2),
+    () => rotateFace("x", -1, Math.PI / 2),
+    () => rotateFace("y", 1, Math.PI / 2),
+    () => rotateFace("y", -1, Math.PI / 2),
+    () => rotateFace("z", 1, Math.PI / 2),
+    () => rotateFace("z", -1, Math.PI / 2),
+  ];
 
-  for (let i = 0; i < 15; i++) {
-    const move = moves[Math.floor(Math.random() * moves.length)];
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: move }));
-  }
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i++ > 15) return clearInterval(interval);
+    moves[Math.floor(Math.random() * moves.length)]();
+  }, 300);
 }
 
-// Press S to scramble
 window.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() === "s") {
-    scramble();
-  }
+  if (e.key.toLowerCase() === "s") scramble();
 });
 
-// Animate
+// ---------------- SOLVE (INSTANT RESET) ----------------
+function solve() {
+  cubies.forEach(c => {
+    c.position.set(
+      snap(c.position.x),
+      snap(c.position.y),
+      snap(c.position.z)
+    );
+
+    c.rotation.set(0, 0, 0);
+  });
+}
+
+// PRESS P TO SOLVE
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "p") solve();
+});
+
+// ---------------- ANIMATE ----------------
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
 }
+
 animate();
 
-// Resize
+// ---------------- RESIZE ----------------
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
