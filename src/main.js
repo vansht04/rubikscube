@@ -1,6 +1,7 @@
 import "./style.css";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import gsap from "gsap";
 
 // Scene
 const scene = new THREE.Scene();
@@ -31,67 +32,125 @@ const light = new THREE.DirectionalLight(0xffffff, 2);
 light.position.set(5, 5, 5);
 scene.add(light);
 
-// Rubik's colors
-const colors = {
-  right: 0xff0000,   // red
-  left: 0xffa500,    // orange
-  top: 0xffffff,     // white
-  bottom: 0xffff00,  // yellow
-  front: 0x00ff00,   // green
-  back: 0x0000ff     // blue
-};
+// Cube group (IMPORTANT)
+const cube = new THREE.Group();
+scene.add(cube);
 
-// Cubie size + spacing
-const size = 0.95;
+// Store cubies
+const cubies = [];
 
-// Group for whole cube
-const rubiksCube = new THREE.Group();
-scene.add(rubiksCube);
-
-// Create 27 cubies (3x3x3)
+// Create 27 cubies
 for (let x = -1; x <= 1; x++) {
   for (let y = -1; y <= 1; y++) {
     for (let z = -1; z <= 1; z++) {
 
-      const materials = [
-        new THREE.MeshStandardMaterial({ color: x === 1 ? colors.right : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: x === -1 ? colors.left : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: y === 1 ? colors.top : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: y === -1 ? colors.bottom : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: z === 1 ? colors.front : 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: z === -1 ? colors.back : 0x111111 }),
+      const colors = [
+        new THREE.MeshStandardMaterial({ color: x === 1 ? 0xff0000 : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: x === -1 ? 0xffa500 : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: y === 1 ? 0xffffff : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: y === -1 ? 0xffff00 : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: z === 1 ? 0x00ff00 : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: z === -1 ? 0x0000ff : 0x111111 }),
       ];
 
       const cubie = new THREE.Mesh(
-        new THREE.BoxGeometry(size, size, size),
-        materials
+        new THREE.BoxGeometry(0.95, 0.95, 0.95),
+        colors
       );
 
       cubie.position.set(x, y, z);
 
-      rubiksCube.add(cubie);
+      cube.add(cubie);
+      cubies.push(cubie);
 
-      // black edges for each cubie
       const edges = new THREE.EdgesGeometry(cubie.geometry);
       const line = new THREE.LineSegments(
         edges,
         new THREE.LineBasicMaterial({ color: 0x000000 })
       );
-
       cubie.add(line);
     }
   }
 }
 
-// Animation
-function animate() {
-  requestAnimationFrame(animate);
-
-  controls.update();
-
-  renderer.render(scene, camera);
+// Face selection helper
+function getFace(axis, value) {
+  return cubies.filter(c => Math.round(c.position[axis]) === value);
 }
 
+// Rotate a face
+function rotateFace(axis, value, angle) {
+  const face = getFace(axis, value);
+
+  const temp = new THREE.Group();
+  cube.add(temp);
+
+  face.forEach(c => temp.attach(c));
+
+  gsap.to(temp.rotation, {
+    [axis]: temp.rotation[axis] + angle,
+    duration: 0.4,
+    onComplete: () => {
+      face.forEach(c => cube.attach(c));
+      temp.rotation.set(0, 0, 0);
+      cube.remove(temp);
+    }
+  });
+}
+
+// Controls (keyboard moves)
+window.addEventListener("keydown", (e) => {
+  switch (e.key.toLowerCase()) {
+
+    case "r":
+      rotateFace("x", 1, Math.PI / 2);
+      break;
+
+    case "l":
+      rotateFace("x", -1, -Math.PI / 2);
+      break;
+
+    case "u":
+      rotateFace("y", 1, Math.PI / 2);
+      break;
+
+    case "d":
+      rotateFace("y", -1, -Math.PI / 2);
+      break;
+
+    case "f":
+      rotateFace("z", 1, Math.PI / 2);
+      break;
+
+    case "b":
+      rotateFace("z", -1, Math.PI / 2);
+      break;
+  }
+});
+
+// Scramble
+function scramble() {
+  const moves = ["r","l","u","d","f","b"];
+
+  for (let i = 0; i < 15; i++) {
+    const move = moves[Math.floor(Math.random() * moves.length)];
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: move }));
+  }
+}
+
+// Press S to scramble
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "s") {
+    scramble();
+  }
+});
+
+// Animate
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
 animate();
 
 // Resize
