@@ -13,12 +13,10 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(3, 3, 3);
+camera.position.set(4, 4, 4);
 
 // Renderer
-const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-});
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -33,29 +31,57 @@ const light = new THREE.DirectionalLight(0xffffff, 2);
 light.position.set(5, 5, 5);
 scene.add(light);
 
-// Rubik's Cube colors (standard layout)
-const materials = [
-  new THREE.MeshStandardMaterial({ color: 0xff0000 }), // right (red)
-  new THREE.MeshStandardMaterial({ color: 0xffa500 }), // left (orange)
-  new THREE.MeshStandardMaterial({ color: 0xffffff }), // top (white)
-  new THREE.MeshStandardMaterial({ color: 0xffff00 }), // bottom (yellow)
-  new THREE.MeshStandardMaterial({ color: 0x00ff00 }), // front (green)
-  new THREE.MeshStandardMaterial({ color: 0x0000ff }), // back (blue)
-];
+// Rubik's colors
+const colors = {
+  right: 0xff0000,   // red
+  left: 0xffa500,    // orange
+  top: 0xffffff,     // white
+  bottom: 0xffff00,  // yellow
+  front: 0x00ff00,   // green
+  back: 0x0000ff     // blue
+};
 
-// Cube
-const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+// Cubie size + spacing
+const size = 0.95;
 
-const cube = new THREE.Mesh(geometry, materials);
-scene.add(cube);
+// Group for whole cube
+const rubiksCube = new THREE.Group();
+scene.add(rubiksCube);
 
-// Black edges (THIS is what makes it look like a Rubik's Cube)
-const edges = new THREE.EdgesGeometry(geometry);
-const line = new THREE.LineSegments(
-  edges,
-  new THREE.LineBasicMaterial({ color: 0x000000 })
-);
-cube.add(line);
+// Create 27 cubies (3x3x3)
+for (let x = -1; x <= 1; x++) {
+  for (let y = -1; y <= 1; y++) {
+    for (let z = -1; z <= 1; z++) {
+
+      const materials = [
+        new THREE.MeshStandardMaterial({ color: x === 1 ? colors.right : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: x === -1 ? colors.left : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: y === 1 ? colors.top : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: y === -1 ? colors.bottom : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: z === 1 ? colors.front : 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: z === -1 ? colors.back : 0x111111 }),
+      ];
+
+      const cubie = new THREE.Mesh(
+        new THREE.BoxGeometry(size, size, size),
+        materials
+      );
+
+      cubie.position.set(x, y, z);
+
+      rubiksCube.add(cubie);
+
+      // black edges for each cubie
+      const edges = new THREE.EdgesGeometry(cubie.geometry);
+      const line = new THREE.LineSegments(
+        edges,
+        new THREE.LineBasicMaterial({ color: 0x000000 })
+      );
+
+      cubie.add(line);
+    }
+  }
+}
 
 // Animation
 function animate() {
@@ -65,9 +91,10 @@ function animate() {
 
   renderer.render(scene, camera);
 }
+
 animate();
 
-// Resize fix
+// Resize
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
