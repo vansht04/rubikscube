@@ -180,9 +180,9 @@ function solve() {
   });
 }
 
-// PRESS P TO SOLVE
+// PRESS S TO SOLVE
 window.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() === "p") solve();
+  if (e.key.toLowerCase() === "s") solve();
 });
 
 // ---------------- ANIMATE ----------------
